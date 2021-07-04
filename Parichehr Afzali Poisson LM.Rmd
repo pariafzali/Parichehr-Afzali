@@ -24,8 +24,6 @@ library(afex)
 markers <- read.csv("metadata.csv")
 becauseNor <- read.csv("Because NO Copy.csv")
 
-becausePer <- read.csv("Because persian.csv")
-
 # check the datasets:
 
 markers
