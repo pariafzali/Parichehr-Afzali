@@ -1,0 +1,278 @@
+---
+title: "Poisson Model on Argumentative markers - Parichehr Afzali"
+output:
+  word_document: 
+    keep_md: yes
+  html_document: default
+  pdf_document: default
+---
+#Introduction
+In this dataset the frequency of the word 'because' used by Norwegian writers of English is counted and we are going to look at how different individuals (Male/Female) are using the word in order to mark the argument that they are going to put forward in the causal argumentation scheme in order to back-up their original argument. The dataset presented here is simplified, so the differences among the performance of Norwegians, Iranian and native speakers of English are not modeled here. The linear model will look into a part of this study which is the difference among the individuals and genders in the frequency of using 'because' in an argumentative text written in English. There will be only two plots presented to highlight that the difference between the Norwegian group in using the word 'becuase' in comparison to the Persian speakers.The prediction of the outcome of the model is that Norwegians use 'because' frequently and there is a slight difference between genders while trying to argue for or against a subject. 
+```{r}
+ 
+```
+
+
+
+```{r}
+setwd("C://temp//Norwegian 14 Dec 22-30")
+
+# Load tidyverse, lme4, and afex:
+library(tidyverse)
+library(lme4)
+library(afex)
+
+# Load the dtatasets:
+
+markers <- read.csv("metadata.csv")
+becauseNor <- read.csv("Because NO Copy.csv")
+
+becausePer <- read.csv("Because persian.csv")
+
+# check the datasets:
+
+markers
+becauseNor
+```
+
+
+```{r}
+#The data file contains information about the nationality, native language, foreign languages, institution, title of the text, timing condition, examination condition, the number of years they have studied English, timing of the text, and use of reference tools. However, most of these pieces of data have been chosen to be similar for the purpose of comparability of the three sub-corpora for writers from different language backgrounds. Therefore, the information which may help in this study is the frequency of the words, length of the text, and gender for each individual. The following steps are taken in that regard: 
+
+#Rename the columns that will be used later:
+becauseNor <- rename(becauseNor, Freq = Center)
+becauseNor <- rename(becauseNor, ID = File.name)
+becauseNor <- rename(becauseNor, Length = Length.in.words)
+
+becauseNor
+
+# Select the columns that will be used in the linear modeling:
+
+select (becauseNor,ID, Freq, Length, Gender)
+becauseNor <- select (becauseNor,ID, Freq, Length, Gender)
+becauseNor
+```
+```{r}
+# Count the number of times each individual has used 'because' in their texts:
+Frequency <- becauseNor %>% count(ID)
+Frequency
+```
+
+
+```{r}
+# Rename the culomn:
+Frequency <- rename(Frequency, Freq = n)
+Frequency
+```
+
+
+```{r}
+# Left join the dataset containing the counts with the dataset containing length of the texts and gender of the writers:
+left_join(Frequency,becauseNor, by = "ID")
+```
+
+
+```{r}
+# There is no need to pivot longer this dataframe because there is one observation on any line.
+# Assign the changes to a new set:
+
+FreqBecauseNOR <-left_join(Frequency,becauseNor, by = "ID")
+
+FreqBecauseNOR
+
+```
+
+
+```{r}
+# Rename the Freq.x column:
+
+FreqBecauseNOR <- rename(FreqBecauseNOR, n = Freq.x)
+
+FreqBecauseNOR
+
+# Remove the repetitive occurrences:
+
+library(dplyr) 
+
+FreqBecauseNOR <- FreqBecauseNOR %>% distinct(ID, n, Gender, Length)
+FreqBecauseNOR <- mutate(FreqBecauseNOR,
+                     Rate = n / Length)
+
+FreqBecauseNOR
+```
+
+
+```{r}
+# The plot shows the rate of the frequency of the word 'because' to the length of the texts written by the Norwegian learners.
+
+FreqBecauseNOR %>%  
+  ggplot(aes(x = ID, y = Rate)) +
+  geom_bar(stat = 'identity')
+
+FreqBecauseNOR %>%  
+  ggplot(aes(x = ID, y = Rate, fill = ID)) +
+  geom_bar(stat = 'identity')
+library(RColorBrewer)
+nb.cols <- 22
+mycolors <- colorRampPalette(brewer.pal(8, "Set3"))(nb.cols)
+
+FreqBecauseNOR %>% 
+  ggplot(aes(x = ID, y = Rate, fill = ID)) +
+  geom_bar(stat = 'identity') +
+  scale_fill_manual (values = mycolors)+
+  theme_classic() +
+  xlab (NULL) +
+  ylab('Frequency of Because') +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme(axis.text.y = element_text(size = 10),
+        axis.text.x = element_text(angle = 45, hjust = 1,
+                                   size = 6, face = 'bold'),
+        axis.title.y = element_text(size = 15,
+                                    face = 'bold',
+                                    margin = margin (r =15)),
+        legend.position = 'blank')
+```
+
+
+
+
+```{r}
+# Calculate the logfrequency of because*:
+FreqBecauseNOR <- mutate(FreqBecauseNOR, 
+                         LogFreq = log10(n))
+FreqBecauseNOR
+FreqBecauseNOR_mdl <- lm( n ~ Length + Gender + LogFreq + Rate,
+                         data = FreqBecauseNOR)
+summary(FreqBecauseNOR_mdl)
+```
+
+
+
+
+```{r}
+#Predictors are standardized:
+
+FreqBecauseNOR <- mutate(FreqBecauseNOR, 
+                         n_z = scale(n),
+                         Length_z = scale (Length),
+                         LogFreq_z = scale(LogFreq),
+                         Rate_z = scale (Rate))
+```
+
+```{r}
+#Model is refitted:
+summary(FreqBecauseNOR_mdl_z <-  lm( n_z ~ Length_z +  LogFreq_z +  Rate_z ,
+                         data = FreqBecauseNOR))
+```
+
+
+```{r}
+# Female and Male numbers are extracted from the Gender column:
+
+GenderNOR <- filter(FreqBecauseNOR,Gender %in% c('Female', 'Male'))
+GenderNOR_mdl <- lm(Rate ~ Gender, data = FreqBecauseNOR)
+summary(GenderNOR_mdl)
+```
+
+
+```{r}
+# sample t-test is performed for Rate and Gender:
+
+t.test(Rate ~ Gender, data = FreqBecauseNOR, var.equal = TRUE)
+```
+
+
+```{r}
+#Gender is converted to factor:
+FreqBecauseNOR <- mutate (FreqBecauseNOR, Gender_fac = factor(Gender))
+
+levels (FreqBecauseNOR$Gender_fac)
+contrasts(FreqBecauseNOR$Gender_fac)
+```
+
+
+```{r}
+# The factor is sum-coded for both levels:
+contrasts(FreqBecauseNOR$Gender_fac) <- contr.sum(2)
+contrasts(FreqBecauseNOR$Gender_fac)
+```
+
+
+```{r}
+# The p-value shows that there is no significant use between the use of the word 'because' between male and female writers:
+
+summary(GenderNOR_mdl <- lm(Rate ~ Gender_fac,
+                         data = FreqBecauseNOR))
+
+```
+
+
+```{r}
+# The plot shows that on average although male students have been using 'because' slightly more than female students, considering the p-value of 0.45, there is no significant difference between these two groups.
+GenderNOR %>% ggplot(aes(x= Rate, y = Gender, col= Gender)) +
+  geom_point() +
+  facet_wrap(~Gender) +
+  geom_smooth(formula = y ~ x, method = 'lm')
+
+
+```
+
+
+```{r}
+summary (lm(Rate ~ Gender * Gender, data = GenderNOR))
+```
+
+
+```{r}
+# Rate is centered:
+GenderNOR <- mutate(GenderNOR, Rate_c = Rate - mean (Rate, na.rm = TRUE))
+# The model is refitted:
+summary(GenderNOR_Rate_mdl <- lm(n ~ Rate_c * Gender,
+                         data = GenderNOR))
+```
+
+```{r}
+
+GenderNOR %>% ggplot(aes(x= Rate, y = Gender, col= Gender)) +
+  geom_point() +
+  facet_wrap(~Gender) +
+  geom_smooth(formula = y ~ x, method = 'lm', fullrange = TRUE) +
+  geom_vline(xintercept= 0, size =2, col = 'blue') +
+  geom_vline(xintercept= mean (GenderNOR$Rate, na.rm = TRUE), linetype = 2)
+
+
+```
+
+
+```{r}
+# Adding two random effects of ID and Gender to the mixed model below also (considering the intercepts and slopes of the fixed effects)  indicates that the difference between male and female participants among Norwegian writers is not significant. The message on the first line specifically indicates that there is no significant difference between male and female writers.
+
+BecauseNor_mdl <- glmer(Length ~ 1 + Rate +
+                         (1|Gender)+ (1|ID),
+                         data = FreqBecauseNOR,
+                         family= poisson)
+
+  summary(BecauseNor_mdl)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
